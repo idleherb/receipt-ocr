@@ -1,0 +1,78 @@
+[project]
+name = "receipt-ocr"
+version = "0.0.1"
+description = "Printed-receipt photo to structured per-line tokens. Sidecar in the vorrat-services TrueNAS app stack; consumed by the vorrat household-pantry app's receipt-photo intake flow per vorrat ADR-0039. Phase 1 (this build): walking-skeleton with /healthz only — OCR engine + parsing rules land in subsequent commits."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "deferred" }
+authors = [{ name = "idleherb" }]
+
+dependencies = [
+    "fastapi>=0.118",
+    "uvicorn[standard]>=0.34",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    # Required by FastAPI's UploadFile / multipart-form parsing —
+    # /ocr-receipt accepts an image upload.
+    "python-multipart>=0.0.18",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.13",
+    "ty>=0.0.1a16",
+    "asgi-lifespan>=2.1",
+    "httpx>=0.28",
+    "diff-cover>=10.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/receipt_ocr"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "UP", "C4", "SIM", "RUF", "PL",
+]
+ignore = ["PLR0913"]  # too-many-arguments — FastAPI route signatures need them
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR2004"]  # magic numbers in tests are fine
+
+[tool.pytest.ini_options]
+addopts = """
+    --strict-markers
+    --strict-config
+    --cov=src/receipt_ocr
+    --cov-branch
+    --cov-report=term-missing
+    --cov-report=xml
+    --cov-fail-under=90
+"""
+asyncio_mode = "auto"
+testpaths = ["tests"]
+log_level = "WARNING"
+
+[tool.coverage.run]
+branch = true
+source = ["src/receipt_ocr"]
+# Phase 1 is /healthz-only; nothing to omit yet. Phase 2 will add an
+# OCR runner module to omit (the thin wrapper around the OCR engine
+# that requires a real model on disk to verify).
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
