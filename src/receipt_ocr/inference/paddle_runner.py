@@ -50,8 +50,18 @@ class PaddleRunner:
         # `from paddleocr import ...` triggers that.
         #
         # PaddleOCR 3.x auto-downloads its detection / recognition /
-        # textline-orientation models on first init based on `lang`;
-        # subsequent inits hit the cache and warm-start in seconds.
+        # textline-orientation models on first init based on `lang`.
+        # Subsequent inits hit the cache and warm-start in seconds.
+        #
+        # paddlepaddle is pinned `<3.3` in pyproject.toml because
+        # 3.3 has a PIR-executor + oneDNN-instruction bug that raises
+        # NotImplementedError(ConvertPirAttribute2RuntimeAttribute)
+        # at predict-time on real images, regardless of which
+        # PP-OCRv5 / PP-OCRv4 detection variant is used. Runtime
+        # flags (FLAGS_use_mkldnn=0, FLAGS_enable_pir_in_executor=
+        # false) don't sidestep it. paddle 3.2.x runs cleanly with
+        # default models. Revisit once paddlepaddle ships a 3.3.x
+        # patch or a 3.4 series with the fix.
         self._ocr = PaddleOCR(
             lang=lang,
             use_doc_orientation_classify=False,

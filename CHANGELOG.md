@@ -9,7 +9,19 @@ Watchtower swap).
 
 ## [Unreleased]
 
-### Added — Phase 2b (this commit): parser + `/ocr-receipt` wire-up
+### Fixed — Phase 2c: paddlepaddle 3.3 PIR-executor crash on real images
+- Pinning `paddlepaddle<3.3` works around a PIR-executor + oneDNN-
+  instruction bug that raised `NotImplementedError(Convert
+  PirAttribute2RuntimeAttribute not support pir::ArrayAttribute<
+  pir::DoubleAttribute>)` at every predict-time call against
+  PP-OCRv5 / PP-OCRv4 detection models. paddle 3.2.x runs cleanly.
+- Discovered post-Phase-2b deploy: live `/ocr-receipt` 500'd on real
+  receipt-photo input until this pin landed. Runtime flags
+  (`FLAGS_use_mkldnn=0`, `FLAGS_enable_pir_in_executor=false`) and
+  detection-model pinning (PP-OCRv4_mobile_det) did not sidestep the
+  issue. Revisit the pin once paddlepaddle ships 3.3.x patch or 3.4.
+
+### Added — Phase 2b: parser + `/ocr-receipt` wire-up
 - New `parsing/` module:
   - `line_parser.parse_item_line` extracts
     `(raw_token, price_eur, multiplier, line_total_eur, tax_marker)`

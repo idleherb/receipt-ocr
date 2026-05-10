@@ -21,7 +21,7 @@ dependencies = [
     # numpy + Pillow are pulled in transitively but pinned here for
     # explicitness.
     "paddleocr>=2.7",
-    "paddlepaddle>=2.6",
+    "paddlepaddle>=2.6,<3.3",  # 3.3 has a PIR/oneDNN attribute bug on PP-OCRv5 + v4 models
     "numpy>=1.26,<2.0",
     "Pillow>=10.0",
 ]
