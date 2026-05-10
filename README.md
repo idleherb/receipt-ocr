@@ -8,9 +8,12 @@ receipt-photo intake flow per
 
 ## Status
 
-Phase 2a (current). PaddleOCR engine integrated; `/healthz` reflects
-the runner's load state truthfully. `/ocr-receipt` continues to return
-`503 model not loaded` until Phase 2b lands the parsing layer.
+Phase 2b (current). PaddleOCR engine + parser pipeline wired
+end-to-end. `/healthz` reflects the runner's load state; `/ocr-receipt`
+returns the full `OcrReceiptResponse` (market header, parsed item
+lines, totals) for loaded runners, and 503 cleanly for unloaded /
+stub mode (CI smoke). Real-receipt benchmark gate per ADR-0039 §1
+runs in Phase 3.
 
 Implementation roadmap (per
 [ADR-0039 §6](https://github.com/idleherb/vorrat/blob/main/docs/architecture/adrs/0039-receipt-ocr-sidecar.md)):
@@ -47,9 +50,13 @@ Implementation roadmap (per
 
 ### `POST /ocr-receipt`
 
-Multipart-form image -> structured per-line tokens. Phase 1 always
-returns 503; Phase 2 returns the schema documented in
-[ADR-0039 §2](https://github.com/idleherb/vorrat/blob/main/docs/architecture/adrs/0039-receipt-ocr-sidecar.md).
+Multipart-form image (`image/jpeg` or `image/png`, ≤ 8 MiB) ->
+structured per-line tokens per
+[ADR-0039 §2a](https://github.com/idleherb/vorrat/blob/main/docs/architecture/adrs/0039-receipt-ocr-sidecar.md).
+Returns 503 with `{"detail": "model not loaded"}` when the runner
+isn't loaded (CI smoke / engine boot failure) — this is the
+soft-fail signal that lets vorrat-app degrade the receipt-photo
+intake gracefully without breaking other paths.
 
 ## Running locally
 

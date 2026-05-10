@@ -57,6 +57,12 @@ ignore = ["PLR0913"]  # too-many-arguments — FastAPI route signatures need the
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR2004"]  # magic numbers in tests are fine
+# RUF001 (ambiguous unicode chars) is the right rule in general, but
+# the line_parser's regex deliberately matches the unicode times-sign
+# (×, U+00D7) some receipts use as a multiplier symbol; the schemas
+# docstring uses × in a math expression. Accept the deliberate use.
+"src/receipt_ocr/parsing/line_parser.py" = ["RUF001"]
+"src/receipt_ocr/schemas.py" = ["RUF001"]
 
 [tool.pytest.ini_options]
 addopts = """

@@ -90,9 +90,10 @@ jobs:
           # Engine disabled in CI ⇒ stub state.
           echo "$healthz" | grep -q '"model_loaded":false'
           echo "$healthz" | grep -q '"model_id":"unloaded"'
-          # /ocr-receipt 503s when the runner is the unloaded stub
-          # (Phase 2a). Phase 2b will keep the 503 path for stub mode
-          # and add the real-tokens path when the engine is loaded.
+          # /ocr-receipt 503s when the runner is the unloaded stub.
+          # Real-tokens path is exercised by integration tests with a
+          # loaded StubRunner (tests/test_ocr_receipt_endpoint.py) and
+          # by the live server post-Watchtower-deploy.
           status=$(curl -s -o /tmp/body.json -w "%{http_code}" -X POST \
             -F "image=@-;filename=fake.jpg;type=image/jpeg" \
             http://localhost:8003/ocr-receipt < /dev/null)
