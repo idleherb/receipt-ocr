@@ -11,7 +11,7 @@ htmlcov/
 
 # uv
 .venv/
-.python-version
+# .python-version is committed to pin the Python ABI (paddlepaddle wheels lag).
 
 # Editor / OS noise
 .DS_Store

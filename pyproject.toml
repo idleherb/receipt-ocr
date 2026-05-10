@@ -3,7 +3,7 @@ name = "receipt-ocr"
 version = "0.0.1"
 description = "Printed-receipt photo to structured per-line tokens. Sidecar in the vorrat-services TrueNAS app stack; consumed by the vorrat household-pantry app's receipt-photo intake flow per vorrat ADR-0039. Phase 1 (this build): walking-skeleton with /healthz only — OCR engine + parsing rules land in subsequent commits."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"  # paddlepaddle wheels currently cap at cp313; revisit once cp314 lands upstream
 license = { text = "deferred" }
 authors = [{ name = "idleherb" }]
 
@@ -15,6 +15,15 @@ dependencies = [
     # Required by FastAPI's UploadFile / multipart-form parsing —
     # /ocr-receipt accepts an image upload.
     "python-multipart>=0.0.18",
+    # OCR engine. PaddleOCR ships its own model files via PPaddle's
+    # CDN on first init; we keep them on a named Docker volume mounted
+    # at /models. paddlepaddle is the framework backbone (CPU build);
+    # numpy + Pillow are pulled in transitively but pinned here for
+    # explicitness.
+    "paddleocr>=2.7",
+    "paddlepaddle>=2.6",
+    "numpy>=1.26,<2.0",
+    "Pillow>=10.0",
 ]
 
 [project.optional-dependencies]
@@ -66,9 +75,13 @@ log_level = "WARNING"
 [tool.coverage.run]
 branch = true
 source = ["src/receipt_ocr"]
-# Phase 1 is /healthz-only; nothing to omit yet. Phase 2 will add an
-# OCR runner module to omit (the thin wrapper around the OCR engine
-# that requires a real model on disk to verify).
+omit = ["src/receipt_ocr/inference/paddle_runner.py"]
+# paddle_runner is the thin wrapper around PaddleOCR; testing it
+# requires the model files on disk (~100 MB pulled from PaddlePaddle's
+# CDN on first init). Behaviour is verified via the integration smoke
+# flow (Docker container with the real engine, hit /ocr-receipt
+# against a fixture image) and on the live server post-Watchtower-
+# deploy.
 
 [tool.coverage.report]
 exclude_lines = [

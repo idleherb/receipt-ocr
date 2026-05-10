@@ -8,20 +8,25 @@ receipt-photo intake flow per
 
 ## Status
 
-Walking-skeleton (Phase 1). `/healthz` returns `200 OK`,
-`/ocr-receipt` returns `503 model not loaded`. The OCR engine and
-parsing rules land in subsequent commits per
-[ADR-0039 §6](https://github.com/idleherb/vorrat/blob/main/docs/architecture/adrs/0039-receipt-ocr-sidecar.md).
+Phase 2a (current). PaddleOCR engine integrated; `/healthz` reflects
+the runner's load state truthfully. `/ocr-receipt` continues to return
+`503 model not loaded` until Phase 2b lands the parsing layer.
 
-Implementation roadmap:
+Implementation roadmap (per
+[ADR-0039 §6](https://github.com/idleherb/vorrat/blob/main/docs/architecture/adrs/0039-receipt-ocr-sidecar.md)):
 
-- **Phase 1 (this commit):** repo scaffold, `/healthz`, `/ocr-receipt`
-  503, CI green on GHCR `:latest`. Deployable into vorrat-services as
-  a placeholder that does nothing yet but is reachable.
-- **Phase 2 (next):** OCR engine integration (PaddleOCR baseline per
-  ADR-0039 §1). `/ocr-receipt` returns real tokens for fixture images.
-- **Phase 3:** real-receipt benchmark gate, parsing rules, market
-  header detection.
+- **Phase 1 (shipped):** repo scaffold, `/healthz`, `/ocr-receipt` 503,
+  CI green on GHCR `:latest`.
+- **Phase 2a (current commit):** PaddleOCR engine wired in via the
+  `OcrRunner` Protocol (`inference/runner.py`); concrete backend in
+  `inference/paddle_runner.py`. Lifespan loads the engine at startup;
+  `/healthz` reports `model_loaded:true` on the live server once warm.
+  CI runs with `RECEIPT_OCR_DISABLE_ENGINE=true` to skip the ~100 MB
+  model download.
+- **Phase 2b (next):** parser + `/ocr-receipt` wire-up. Engine output
+  -> structured per-line tokens (price, multiplier, tax-marker) +
+  market-header detection.
+- **Phase 3:** real-receipt benchmark gate per ADR-0039 §1.
 
 ## API
 

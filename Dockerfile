@@ -1,17 +1,19 @@
 # syntax=docker/dockerfile:1.7
 # Multi-stage build for receipt-ocr.
 #
-# Walking-skeleton (Phase 1): no OCR engine yet, image is small (~150 MB).
-# Phase 2 will add PaddleOCR (or chosen backend per ADR-0039 §1) — the
-# OCR model files are mounted at runtime via Docker volume, never baked
-# into the image.
+# Phase 2a: PaddleOCR engine integration. paddlepaddle's amd64 wheel is
+# ~700 MB, paddleocr is small. Image grows to ~1.2 GB. The OCR model
+# files (~100 MB total: detection + recognition + textline-orientation)
+# are pulled by PaddleOCR on first init into the named Docker volume
+# mounted at /models — never baked into the image.
 
 FROM python:3.12-slim AS builder
 
-# uv handles the venv + dep install. No native build deps needed in
-# Phase 1 (FastAPI + uvicorn are pure-Python wheels). Phase 2 may add
-# build-essential / libgl1 / libglib2.0 depending on OCR backend.
+# uv handles the venv + dep install. paddlepaddle ships sdists for some
+# transitive deps that need a compiler; we keep build-essential in the
+# builder stage only and discard the runtime stage.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
         git \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,8 +33,16 @@ COPY src ./src
 
 FROM python:3.12-slim AS runtime
 
-# No native runtime deps in Phase 1. Phase 2 may add libgomp1 / libgl1
-# depending on OCR backend.
+# Native runtime deps for paddlepaddle + paddleocr:
+#   - libgomp1: OpenMP runtime for paddle's CPU threading
+#   - libgl1, libglib2.0-0: OpenCV (paddleocr's image-pre-processing
+#     dep) loads libGL.so.1 + libgthread-2.0.so.0 even on headless
+#     servers. Without these, `import cv2` fails at import time.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgomp1 \
+        libgl1 \
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
@@ -42,6 +52,14 @@ COPY pyproject.toml ./
 ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
 ENV PYTHONUNBUFFERED=1
+
+# PaddleX (PaddleOCR's underlying model-management layer) reads this
+# env-var at module load to decide where to download / cache official
+# models. Pointing it at the mounted /models volume makes downloads
+# survive container restarts. Must be set before any paddleocr/paddlex
+# import — Python-side `os.environ.setdefault()` is too late because
+# paddlex computes its CACHE_DIR at import time.
+ENV PADDLE_PDX_CACHE_HOME=/models/paddlex
 
 # Pre-create /models with UID 1000 ownership inside the image. Compose
 # stacks set `user: '1000:1000'`; without this the container's worker

@@ -66,7 +66,15 @@ jobs:
       - name: Smoke test — boot container, hit /healthz, /ocr-receipt 503
         run: |
           set -euo pipefail
+          # CI runs with the engine disabled — the ~100 MB PaddleOCR
+          # model download would slow every commit's pipeline. The
+          # disable-engine path runs as _UnloadedStub, mirroring the
+          # off-classifier's CI smoke pattern (model_repo="" → stub).
+          # Real-engine verification happens on the live server after
+          # Watchtower deploys this image, by curling /healthz and
+          # observing model_loaded:true once the engine warms up.
           docker run -d --name receipt-ocr-smoke -p 8003:8003 \
+            -e RECEIPT_OCR_DISABLE_ENGINE=true \
             receipt-ocr:smoke
           for i in $(seq 1 60); do
             if curl -fsS http://localhost:8003/healthz > /dev/null 2>&1; then
@@ -79,11 +87,12 @@ jobs:
           echo "$healthz" | grep -q '"ok":true'
           echo "$healthz" | grep -q '"channel":"main"'
           echo "$healthz" | grep -q "\"commit\":\"${{ steps.meta.outputs.sha7 }}\""
-          # Phase 1: model_loaded must be false (no OCR engine yet).
+          # Engine disabled in CI ⇒ stub state.
           echo "$healthz" | grep -q '"model_loaded":false'
           echo "$healthz" | grep -q '"model_id":"unloaded"'
-          # /ocr-receipt must 503 cleanly in Phase 1, mirroring the
-          # off-classifier's /classify-when-no-model behaviour.
+          # /ocr-receipt 503s when the runner is the unloaded stub
+          # (Phase 2a). Phase 2b will keep the 503 path for stub mode
+          # and add the real-tokens path when the engine is loaded.
           status=$(curl -s -o /tmp/body.json -w "%{http_code}" -X POST \
             -F "image=@-;filename=fake.jpg;type=image/jpeg" \
             http://localhost:8003/ocr-receipt < /dev/null)
